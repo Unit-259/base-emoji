@@ -70,7 +70,7 @@ function Encode-Emoji {
 
         [string]$Key,  # If provided, encrypts with AES
 
-        [int]$t # If provided, encrypts with time-based AES (renamed from "MinuteFactor")
+        [int]$t = -1  # Default to -1 so that time-based encryption isn’t triggered by default
     )
 
     # 1) Determine StartIndex
@@ -92,7 +92,9 @@ function Encode-Emoji {
     # 4) Convert Base64 to Emoji Encoding
     $Base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
     $EncodeMap = @{}
-    for ($i = 0; $i -lt 64; $i++) { $EncodeMap[$Base64Chars[$i]] = $EmojiSet[$i] }
+    for ($i = 0; $i -lt 64; $i++) { 
+        $EncodeMap[$Base64Chars[$i]] = $EmojiSet[$i] 
+    }
 
     $EncodedText = ""
     $markerEmoji = $EmojiSet[0]
@@ -109,16 +111,23 @@ function Encode-Emoji {
     return $EncodedText
 }
 
+
 function Decode-Emoji-Base {
     param(
         [Parameter(Mandatory)]
         [string]$EncodedText,
 
-        [Parameter(Mandatory)]
+        # Optional key; if not provided, no AES decryption is performed
+        [Parameter(Mandatory=$false)]
         [string]$Key
     )
 
     $clusterPositions = [System.Globalization.StringInfo]::ParseCombiningCharacters($EncodedText)
+    if ($clusterPositions.Count -lt 3) {
+        throw "Encoded text is too short or has an invalid format!"
+    }
+    
+    # Get the two identical markers that indicate the start of the encoding.
     $marker1 = $EncodedText.Substring($clusterPositions[0], $clusterPositions[1] - $clusterPositions[0])
     $marker2 = $EncodedText.Substring($clusterPositions[1], $clusterPositions[2] - $clusterPositions[1])
 
@@ -126,13 +135,16 @@ function Decode-Emoji-Base {
         throw "Invalid start marker!"
     }
 
+    # Derive the StartIndex based on the marker emoji.
     $baseCode = 0x1F600
     $StartIndex = [char]::ConvertToUtf32($marker1, 0) - $baseCode
     $EmojiSet = Get-EmojiSet -StartIndex $StartIndex
 
     $Base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
     $DecodeMap = @{}
-    for ($i = 0; $i -lt 64; $i++) { $DecodeMap[$EmojiSet[$i]] = $Base64Chars[$i] }
+    for ($i = 0; $i -lt 64; $i++) {
+        $DecodeMap[$EmojiSet[$i]] = $Base64Chars[$i]
+    }
 
     $Base64Output = ""
     for ($posIndex = 2; $posIndex -lt $clusterPositions.Count; $posIndex++) {
@@ -142,7 +154,6 @@ function Decode-Emoji-Base {
         } else {
             $EncodedText.Length - $startPos
         }
-
         $emoji = $EncodedText.Substring($startPos, $length)
 
         if ($emoji -eq $EmojiSet[($EmojiSet.Count - 1)]) {
@@ -152,9 +163,17 @@ function Decode-Emoji-Base {
         }
     }
 
-    $DecryptedText = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Base64Output))
-    return Decrypt-AES -CipherText $DecryptedText -Key $Key
+    # Always convert from Base64 first.
+    $DecodedFromBase64 = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Base64Output))
+    
+    # If a key is provided, decrypt the Base64-decoded text; otherwise, return it directly.
+    if ([string]::IsNullOrEmpty($Key)) {
+        return $DecodedFromBase64
+    } else {
+        return Decrypt-AES -CipherText $DecodedFromBase64 -Key $Key
+    }
 }
+
 
 function Decode-Emoji-Static {
     param(
