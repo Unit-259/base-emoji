@@ -222,7 +222,7 @@ function Encode-inEmoji {
       [Parameter(Mandatory=$false)]
       $emoji = '😈',
 
-      [Parameter(Mandatory=$true)]
+      [Parameter(Mandatory=$false)]
       $key
   )
 
