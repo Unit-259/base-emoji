@@ -1,7 +1,14 @@
-
 function encodeEmojiKey {
-  $key = "cooookiesasdfasdfasdf"
-  $emoji = "🥲"
+
+  [CmdletBinding()]
+  param (
+      [Parameter(Mandatory=$true)]
+      $key,
+
+      [Parameter(Mandatory=$false)]
+      $emoji = '😈'
+  )
+
   $selectors = @([char]0xFE00..[char]0xFE0F)
   $bytes = [System.Text.Encoding]::UTF8.GetBytes($key)
   $binary = ($bytes | ForEach-Object { [Convert]::ToString($_, 2).PadLeft(8, '0') }) -join ''
