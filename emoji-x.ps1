@@ -1,5 +1,5 @@
 
-function encodeEmojiKey {
+function Encode-inEmoji {
 
   [CmdletBinding()]
   param (
@@ -26,9 +26,8 @@ function encodeEmojiKey {
   set-clipboard -Value $encoded
 }
 
-###########################################################################################################
 
-function decodeEmojiKey {
+function Decode-inEmoji {
 
     [CmdletBinding()]
     param (
