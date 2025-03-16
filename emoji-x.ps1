@@ -1,16 +1,22 @@
+
 function encodeEmojiKey {
 
   [CmdletBinding()]
   param (
       [Parameter(Mandatory=$true)]
-      $key,
+      $string,
 
       [Parameter(Mandatory=$false)]
-      $emoji = '😈'
+      $emoji = '😈',
+
+      [Parameter(Mandatory=$true)]
+      $key
   )
 
+  if ($key) {$string = Encrypt-AES -PlainText $string -key $key}
+
   $selectors = @([char]0xFE00..[char]0xFE0F)
-  $bytes = [System.Text.Encoding]::UTF8.GetBytes($key)
+  $bytes = [System.Text.Encoding]::UTF8.GetBytes($string)
   $binary = ($bytes | ForEach-Object { [Convert]::ToString($_, 2).PadLeft(8, '0') }) -join ''
   $encoded = $emoji
   for ($i = 0; $i -lt $binary.Length; $i += 4) {
@@ -23,6 +29,13 @@ function encodeEmojiKey {
 ###########################################################################################################
 
 function decodeEmojiKey {
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$false)]
+        [string]$key
+    )
+
     # UTF-8 encoding without BOM
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     
@@ -79,5 +92,6 @@ function decodeEmojiKey {
     # Decode bytes to string and filter to ASCII characters
     $keyDecoded = $utf8NoBom.GetString($bytes)
     $keyCleaned = ($keyDecoded.ToCharArray() | Where-Object { [int]$_ -lt 128 }) -join ''
+    if ($key){$keyCleaned = Decrypt-AES -CipherText $keyCleaned -Key $key}
     Write-Output $keyCleaned
 }
